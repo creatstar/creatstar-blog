@@ -1,4 +1,4 @@
-creatstar-blog
-==============
+creatstar.github.com
+====================
 
-source files for blog
+Personal blog
