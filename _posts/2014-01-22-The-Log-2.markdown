@@ -82,15 +82,25 @@ It's worth emphasizing that the log is still just the infrastructure. That isn't
 I got to watch this data integration problem emerge in fast-forward as LinkedIn moved from a centralized relational database to a collection of distributed systems.
 These days our major data systems include:
 
-* [Search][http://data.linkedin.com/projects/search]
-* [Social Graph][http://engineering.linkedin.com/real-time-distributed-graph/using-set-cover-algorithm-optimize-query-latency-large-scale-distributed]
-* [Voldemort][http://project-voldemort.com/] (key-value store)
-* [Espresso][http://data.linkedin.com/projects/espresso] (document store)
-* [Recommendation engine][http://www.quora.com/LinkedIn-Recommendations/How-does-LinkedIns-recommendation-system-work]
+* [Search][_search]
+* [Social Graph][_sg]
+* [Voldemort][_voldemort] (key-value store)
+* [Espresso][_espresso] (document store)
+* [Recommendation engine][_re]
 * OLAP query engine
-* [Hadoop][http://hadoop.apache.org/]
-* [Terradata][http://www.teradata.com/]
-* [Ingraphs][http://engineering.linkedin.com/52/autometrics-self-service-metrics-collection] (monitoring graphs and metrics services)
+* [Hadoop][_hadoop]
+* [Terradata][_terradata]
+* [Ingraphs][_ingraphs] (monitoring graphs and metrics services)
+
+[_search]:http://data.linkedin.com/projects/search
+[_sg]:http://engineering.linkedin.com/real-time-distributed-graph/using-set-cover-algorithm-optimize-query-latency-large-scale-distributed
+[_voldemort]:http://project-voldemort.com/
+[_espresso]:http://data.linkedin.com/projects/espresso
+[_re]:http://www.quora.com/LinkedIn-Recommendations/How-does-LinkedIns-recommendation-system-work
+[_hadoop]:http://hadoop.apache.org/
+[_terradata]:http://www.teradata.com/
+[_ingraphs]:http://engineering.linkedin.com/52/autometrics-self-service-metrics-collection
+
 
 Each of these is a specialized distributed system that provides advanced functionality in its area of specialty.
 
@@ -113,8 +123,34 @@ Although we had built things in a fairly generic way, each new data source requi
 A few things slowly became clear to me.
 
 First, the pipelines we had built, though a bit of a mess, were actually extremely valuable. Just the process of making data available in a new processing system (Hadoop) unlocked a lot of possibilities. New computation was possible on the data that would have been hard to do before. Many new products and analysis just came from putting together multiple pieces of data that had previously been locked up in specialized systems.
+>将数据放到一个新的处理系统里，是一件很有价值的事情，很多的新产品和分析都是通过把多种数据整合到一起而产生的
 
 Second, it was clear that reliable data loads would require deep support from the data pipeline. If we captured all the structure we needed, we could make Hadoop data loads fully automatic, so that no manual effort was expanded adding new data sources or handling schema changes—data would just magically appear in HDFS and Hive tables would automatically be generated for new data sources with the appropriate columns.
+>可靠的数据读入依赖于数据管道的支持，如果有合适的数据格式，将数据导入特定系统的工作可以是全自动化的。
 
 Third, we still had very low data coverage. That is, if you looked at the overall percentage of the data LinkedIn had that was available in Hadoop, it was still very incomplete. And getting to completion was not going to be easy given the amount of effort required to operationalize each new data source.
+>LinkedIn的可供分析的数据覆盖率仍然很低。
 
+The way we had been proceeding, building out custom data loads for each data source and destination, was clearly infeasible. We had dozens of data systems and data repositories. Connecting all of these would have lead to building custom piping between each pair of systems something like this:
+
+{% image ./2014-01-22/mess_dataflow.png alt="mess_dataflow.png" %}
+
+
+Note that data often flows in both directions, as many systems (databases, Hadoop) are both sources and destinations for data transfer. This meant we would end up building two pipelines per system: one to get data in and one to get data out.
+>在实际生产环境中，任何系统都可能同时既是数据源又是数据出口。如果在任意两个系统间都有两个管道（出口和入口），那整个环境的复杂性是非常可怕的。
+
+This clearly would take an army of people to build and would never be operable. As we approached fully connectivity we would end up with something like O(N2) pipelines.
+
+Instead, we needed something generic like this:
+
+{% image ./2014-01-22/clean_dataflow.png alt="mess_dataflow.png" %}
+
+As much as possible, we needed to isolate each consumer from the source of the data. They should ideally integrate with just a single data repository that would give them access to everything.
+
+The idea is that adding a new data system—be it a data source or a data destination—should create integration work only to connect it to a single pipeline instead of each consumer of data.
+>为了解决这个问题，我们需要尽可能做到把数据的消费从数据源处隔离开。统一的管道而不是各个独立的管道是一个比较自然的想法。
+
+This experience lead me to focus on building Kafka to combine what we had seen in messaging systems with the log concept popular in databases and distributed system internals. We wanted something to act as a central pipeline first for all activity data, and eventually for many other uses, including data deployment out of Hadoop, monitoring data, etc.
+
+For a long time, Kafka was a little unique (some would say odd) as an infrastructure product—neither a database nor a log file collection system nor a traditional messaging system. But recently Amazon has offered a service that is very very similar to Kafka called Kinesis. The similarity goes right down to the way partitioning is handled, data is retained, and the fairly odd split in the Kafka API between high- and low-level consumers. I was pretty happy about this. A sign you've created a good infrastructure abstraction is that AWS offers it as a service! Their vision for this seems to be exactly similar to what I am describing: it is the piping that connects all their distributed systems—DynamoDB, RedShift, S3, etc.—as well as the basis for distributed stream processing using EC2.
+>亚马逊也推出了一个类似kafka的服务，Kinesis
