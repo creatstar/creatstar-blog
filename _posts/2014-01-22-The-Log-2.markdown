@@ -114,8 +114,7 @@ We originally planned to just scrape the data out of our existing Oracle data wa
 >本文作者从Oracle数据仓库导数据到hadoop时出现问题，最后直接从原始数据库和日志文件导数据。并且实现了一个向kv存储（用于线上展示数据）加载数据的pipeline
 
 This mundane data copying ended up being one of the dominate items for the original development. Worse, any time there was a problem in any of the pipelines, the Hadoop system was largely useless—running fancy algorithms on bad data just produces more bad data.
-
-hadoop在坏数据上跑，得到的也是坏数据。
+>hadoop在坏数据上跑，得到的也是坏数据。
 
 Although we had built things in a fairly generic way, each new data source required custom configuration to set up. It also proved to be the source of a huge number of errors and failures. The site features we had implemented on Hadoop became popular and we found ourselves with a long list of interested engineers. Each user had a list of systems they wanted integration with and a long list of new data feeds they wanted.
 >虽然构建了一个较为通用的运行方式，但每个新数据源的加入都需要自定义的配置。这个过程常常会带来不少错误和失败。
