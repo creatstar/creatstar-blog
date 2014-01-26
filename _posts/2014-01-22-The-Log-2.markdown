@@ -224,10 +224,32 @@ Systems people typically think of a distributed log as a slow, heavy-weight abst
 
 We used a few tricks in Kafka to support this kind of scale:
 
-1. Partitioning the log
-2. Optimizing throughput by batching reads and writes
-3. Avoiding needless data copies
+1. Partitioning the log 日志分区
+2. Optimizing throughput by batching reads and writes 利用批量读写来优化吞吐
+3. Avoiding needless data copies 避免不必要的数据备份
 
 In order to allow horizontal scaling we chop up our log into partitions:
 
 {% image ./2014-01-22/log_partitions.png alt="log_partitions.png" %}
+
+Each partition is a totally ordered log, but there is no global ordering between partitions (other than perhaps some wall-clock time you might include in your messages). The assignment of the messages to a particular partition is controllable by the writer, with most users choosing to partition by some kind of key (e.g. user id). Partitioning allows log appends to occur without co-ordination between shards and allows the throughput of the system to scale linearly with the Kafka cluster size.
+>每个分区的日志都是有序的，消息被分配到哪个分区是受writer控制的，划分依据是预先定义好的字段。分区使得各分块的append操作不需要相互协调，并使得kafka的吞吐量随着集群规模可以线性扩展。
+
+Each partition is replicated across a configurable number of replicas, each of which has an identical copy of the partition's log. At any time, a single one of them will act as the leader; if the leader fails, one of the replicas will take over as leader.
+>每个分区都有自己的副本，当主副本失效的时候，其他副本会取代主
+
+Lack of a global order across partitions is a limitation, but we have not found it to be a major one. Indeed, interaction with the log typically comes from hundreds or thousands of distinct processes so it is not meaningful to talk about a total order over their behavior. Instead, the guarantees that we provide are that each partition is order preserving, and Kafka guarantees that appends to a particular partition from a single sender will be delivered in the order they are sent.
+>没有全局的序是一个问题，但并不是一个大问题。由于来源的数据源众多，所以强调全局的序没有太大的实际意义。每个partition内部是保证有序的。
+
+A log, like a filesystem, is easy to optimize for linear read and write patterns. The log can group small reads and writes together into larger, high-throughput operations. Kafka pursues this optimization aggressively. Batching occurs from client to server when sending data, in writes to disk, in replication between servers, in data transfer to consumers, and in acknowledging committed data.
+>使用批量读写的方式优化吞吐量
+
+Finally, Kafka uses a simple binary format that is maintained between in-memory log, on-disk log, and in network data transfers. This allows us to make use of numerous optimizations including zero-copy data transfer.
+>使用简单的二进制格式组织数据
+
+The cumulative effect of these optimizations is that you can usually write and read data at the rate supported by the disk or network, even while maintaining data sets that vastly exceed memory.
+
+This write-up isn't meant to be primarily about Kafka so I won't go into further details. You can read a more detailed overview of LinkedIn's approach [here][_here1] and a thorough overview of Kafka's design [here][_here2].
+
+[_here1]:http://sites.computer.org/debull/A12june/pipeline.pdf
+[_here2]:http://kafka.apache.org/documentation.html#design
