@@ -73,7 +73,7 @@ The most interesting aspect of stream processing has nothing to do with the inte
 
 Let's dive into this a bit. A stream processing job, for our purposes, will be anything that reads from logs and writes output to logs or other systems. The logs they use for input and output join these processes into a graph of processing stages. Indeed, using a centralized log in this fashion, you can view all the organization's data capture, transformation, and flow as just a series of logs and processes that write to them.
 
-<% image ./2014-01-27/multjob_Dataflow.png alt="multjob data flow" %>
+{% image ./2014-01-27/multjob_Dataflow.png alt="multjob data flow" %}
 
 A stream processor need not have a fancy framework at all: it can be any process or set of processes that read and write from logs, but additional infrastructure and support can be provided for helping manage processing code.
 >流处理模块并不需要是一个精妙的框架，它只要能处理来源于logs的读写就可以了，但附加的框架和支持可以帮助处理。
@@ -127,7 +127,7 @@ Of course, we can't hope to keep a complete log for all state changes for all ti
 However, retaining the complete log will use more and more space as time goes by, and the replay will take longer and longer. Hence, in Kafka, we support a different type of retention. Instead of simply throwing away the old log, we remove obsolete records—i.e. records whose primary key has a more recent update. By doing this, we still guarantee that the log contains a complete backup of the source system, but now we can no longer recreate all previous states of the source system, only the more recent ones. We call this feature log compaction.
 >有两种类型的日志，分情况讨论。event数据，一般采用rotate的方式，保留最近一个时间窗口的数据，删除部分历史数据；更新键值，只保留最后更新的数据，删除历史更新。
 
-<% image ./2014-01-27/log_compaction.png alt="log compation" %>
+{% image ./2014-01-27/log_compaction.png alt="log compation" %}
 
 ###Part Four: System Building
 
@@ -194,7 +194,7 @@ The client can get read-your-write semantics from any node by providing the time
 
 The serving nodes may or may not need to have any notion of "mastership" or "leader election". For many simple use cases, the serving nodes can be completely without leaders, since the log is the source of truth.
 
-<% image ./2014-01-27/clients_serv_log.png alt="clients, serving node, log" %>
+{% image ./2014-01-27/clients_serv_log.png alt="clients, serving node, log" %}
 
 One of the trickier things a distributed system must do is handle restoring failed nodes or moving partitions from node to node. A typical approach would have the log retain only a fixed window of data and combine this with a snapshot of the data stored in the partition. It is equally possible for the log to retain a complete copy of data and [garbage collect the log itself][_gc]. This moves a significant amount of complexity out of the serving layer, which is system-specific, and into the log, which can be general purpose.
 >分布式系统中必须解决的一个问题是恢复失效节点的数据或把分区从一个节点迁移到另一个节点。一个典型的做法是，日志只保留一个固定的时间窗口，这些日志和数据快照一起保存在分区上。也可以从日志恢复完整的数据，然后通过垃圾回收清除日志（log compaction）。这样服务层减少了相当多的复杂性。
@@ -203,7 +203,7 @@ One of the trickier things a distributed system must do is handle restoring fail
 
 By having this log system, you get a fully developed subscription API for the contents of the data store which feeds ETL into other systems. In fact, many systems can share the same the log while providing different indexes, like this:
 
-<% image ./2014-01-27/log_centric_inf_stack.png alt="log_centric_inf_stack.png" %>
+{% image ./2014-01-27/log_centric_inf_stack.png alt="log_centric_inf_stack.png" %}
 
 Note how such a log-centric system is itself immediately a provider of data streams for processing and loading in other systems. Likewise, a stream processor can consume multiple input streams and then serve them via another system that indexes that output.
 >利用这种日志系统，订阅API就能就能把ETL的数据导入其他系统，各个系统就能消费多种输入流，并产生对应的索引。
